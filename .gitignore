@@ -1,0 +1,9 @@
+emotion.h5
+train/angry/*.jpg
+train/disgust/*.jpg
+train/fear/*.jpg
+train/happy/*.jpg
+train/neutral/*.jpg
+train/sad/*.jpg
+train/surprise/*.jpg
+validation/*
