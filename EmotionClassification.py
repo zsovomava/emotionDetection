@@ -15,6 +15,7 @@ trainPath = "train"
 categories = os.listdir(trainPath)
 categories.sort()
 numOfClasses = len(categories)
+emotionColor = [170, 80, 140, 40, -1, 110, 30]
 
 
 #find and give back all the faces
@@ -90,18 +91,23 @@ def visualized(video_frame, facePlace, emotionNumber, emotionColor):
     cv2.imshow(
         "My Face Detection Project", video_frame
     )  # display the processed frame in a window named "My Face Detection Project"
-async def classification(video_frame):
+def classification(video_frame):
     tmpText = []
-    print("alma")
     grayImage = cv2.cvtColor(video_frame,cv2.COLOR_BGR2GRAY)
     faces, tmpfacePlace = findFaces(grayImage) 
     if len(faces) != 0:
         smallFaces = prepareImagesForModel(faces)
+        height, width = grayImage.shape
         for i in range(len(tmpfacePlace)):
-            tmpfacePlace[i][0] -= tmpfacePlace[i][2] *0.1
-            tmpfacePlace[i][1] -= tmpfacePlace[i][3] *0.1
-            tmpfacePlace[i][2] += tmpfacePlace[i][2] *0.2
-            tmpfacePlace[i][3] += tmpfacePlace[i][3] *0.2
+            x, y, w, h = tmpfacePlace[i]
+            new_x = x - w * 0.1
+            new_y = y - h * 0.1
+            new_w = w + w * 0.2
+            new_h = h + h * 0.2
+
+            # Ellenőrzés, hogy az új koordináták a képen belül vannak-e
+            if 0 <= new_x <= width and 0 <= new_y <= height and new_x + new_w <= width and new_y + new_h <= height:
+                tmpfacePlace[i] = [new_x, new_y, new_w, new_h]
             resultArray = model.predict(smallFaces[i], verbose=1)
             #print(resultArray)
             answer = np.argmax(resultArray, axis=1)
@@ -109,23 +115,18 @@ async def classification(video_frame):
             tmpText.append(answer[0])
             #print(tmpText[i])
         return [tmpfacePlace,tmpText]
-async def main():
+
+def main():
     counter = 0
     facePlace = []
     emotionNumber = []
-    emotionColor = [0, 80, 140, 40, -1, 110, 20]
     tasks = []
     while True:
-        for task in tasks[:]:
-            if task.done():
-                [facePlace, emotionNumber] = await task
-                tasks.remove(task)
         result, video_frame = video_capture.read()
         if result is False:
             break
         if counter % 24 == 0:
-            task = asyncio.create_task(classification(video_frame))
-            tasks.append(task)
+            [facePlace, emotionNumber] = classification(video_frame.copy())
         visualized(video_frame, facePlace, emotionNumber, emotionColor)
 
 
@@ -135,5 +136,23 @@ async def main():
     video_capture.release()
     cv2.destroyAllWindows()
 
+def saveImage(picture, facePlace, emotionNumber, emotionColor, path):
+    if len(facePlace):
+        for i in range(len(facePlace)):
+            (x,y,w,h) = facePlace[i]
+            hue_shift_region(picture, x, y, w, h, emotionColor[emotionNumber[i]])
+            cv2.rectangle(picture, (int(x), int(y)), (int(x+w), int(y+h)), (0, 0, 255), 2)
+            font = cv2.FONT_HERSHEY_COMPLEX
+            cv2.putText(picture, categories[emotionNumber[i]], (int(x),int(y)), font, 0.5, (209,19,77), 2)
+    cv2.imwrite("picture/test"+path, picture)
+
+def testMain(path):
+    picture = cv2.imread("picture/"+path)
+    
+    [facePlace, emotionNumber] = classification(picture.copy())
+    saveImage(picture, facePlace, emotionNumber, emotionColor,path)
+
+
 if __name__ == "__main__":  
-    asyncio.run(main())
+    #main()
+    testMain("suprised.jpg")
